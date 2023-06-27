@@ -1,0 +1,42 @@
+//standart libs
+#include <string>
+#include <vector>
+#include <iostream>
+#include <chrono>
+
+//Opencv
+#include <opencv2/core/core.hpp>
+#include <opencv2/highgui/highgui.hpp>
+#include <opencv2/imgproc.hpp>
+
+class ColorCurve
+{
+    public:
+        //////////////////////////////////////////////
+        //Class Constructor / Destructor
+        ColorCurve();
+        ~ColorCurve(){};
+
+        // Public methods
+        void setTValue(float &t);
+        void setGValue(float &g);
+        bool setInputImage(std::string &input_img);
+        void setOutputImage(std::string &output_img_path);
+        bool applyColorCurveFunction();
+		void saveOutputImage();
+
+    private:
+        //////////////////////////////////////////////
+        //Private Class members and declarations
+        //////////////////////////////////////////////
+		uchar modifyPixelValue(uchar &pixelValue);
+		cv::Vec3b modifyPixelValue(cv::Vec3b &pixelValue);
+
+        float t_value_, g_value_;
+        int input_image_type_;
+        std::string output_image_path_;
+
+        //input and output cv imgs
+        cv::Mat input_image_, output_image_;
+};
+
