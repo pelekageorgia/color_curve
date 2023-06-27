@@ -101,7 +101,6 @@ cv::Vec3b ColorCurve::modifyPixelValue(cv::Vec3b &pixelValue)
 //A fucntion to apply a color curve to an input image
 bool ColorCurve::applyColorCurveFunction()
 {
-	std::cout << "image type is " << input_image_type_ << std::endl;
 	//if image is 8UC1
 	if(input_image_type_ == 0)
 	{
@@ -115,13 +114,53 @@ bool ColorCurve::applyColorCurveFunction()
 	    //     }
 	    // }
 
-	     // Apply the function to each pixel value of a grayscale image
-        output_image_ = cv::Mat(input_image_.size(), input_image_.type());
-        cv::Mat lut(1, 256, CV_8UC1);
-        uchar* lutData = lut.ptr<uchar>();
-        for (int i = 0; i < 256; ++i) {
-            lutData[i] = modifyPixelValue(pixelValue);
-        cv::LUT(input_image_, lut, output_image_);
+
+		// //first level of optimization
+	    // for (int i = 0; i < input_image_.rows; ++i) 
+	    // {
+		//     uchar* inputPtr = input_image_.ptr<uchar>(i);
+		//     uchar* outputPtr = output_image_.ptr<uchar>(i);
+
+		//     for (int j = 0; j < input_image_.cols; ++j) {
+		//         uchar pixelValue = inputPtr[j];
+		//         uchar modifiedPixelValue = modifyPixelValue(pixelValue);
+		//         outputPtr[j] = modifiedPixelValue;
+		//     }
+		// }
+
+		// //second level of optimization
+		// #pragma omp parallel for
+	    // for (int i = 0; i < input_image_.rows; ++i) 
+	    // {
+		//     uchar* inputPtr = input_image_.ptr<uchar>(i);
+		//     uchar* outputPtr = output_image_.ptr<uchar>(i);
+
+		//     for (int j = 0; j < input_image_.cols; ++j) {
+		//         uchar pixelValue = inputPtr[j];
+		//         uchar modifiedPixelValue = modifyPixelValue(pixelValue);
+		//         outputPtr[j] = modifiedPixelValue;
+		//     }
+		// }
+
+
+		//third level of optimization
+		const int block_size = 8; // Process 8 pixels at a time (adjust based on your CPU's vector width)
+		#pragma omp parallel for
+		for (int i = 0; i < input_image_.rows; i += block_size) {
+		    for (int j = 0; j < input_image_.cols; j += block_size) {
+		        for (int ii = 0; ii < block_size; ++ii) {
+		            uchar* inputPtr = input_image_.ptr<uchar>(i + ii);
+		            uchar* outputPtr = output_image_.ptr<uchar>(i + ii);
+
+		            for (int jj = 0; jj < block_size; ++jj) {
+		                uchar pixelValue = inputPtr[j + jj];
+		                uchar modifiedPixelValue = modifyPixelValue(pixelValue);
+		                outputPtr[j + jj] = modifiedPixelValue;
+		            }
+		        }
+		    }
+		}
+
 	}
 	else if (input_image_type_ == 16)
 	{
@@ -137,24 +176,75 @@ bool ColorCurve::applyColorCurveFunction()
 	    // //     }
 	    // // }
 
-	    //  // Apply the function to each pixel value of a color image
-        // output_image_ = input_image_.clone();
+		//first level of optimization
+	    // for (int i = 0; i < input_image_.rows; ++i) 
+	    // {
+		//     cv::Vec3b* inputPtr = input_image_.ptr<cv::Vec3b>(i);
+		//     cv::Vec3b* outputPtr = output_image_.ptr<cv::Vec3b>(i);
 
-        // // Split the channels of the color image
-        // std::vector<cv::Mat> channels(3);
-        // cv::split(output_image_, channels);
+		//     for (int j = 0; j < input_image_.cols; ++j) {
+		//         cv::Vec3b pixelValue = inputPtr[j];
+		//         cv::Vec3b modifiedPixelValue = modifyPixelValue(pixelValue);
+		//         outputPtr[j] = modifiedPixelValue;
+		//     }
+		// }
 
-        // // Apply the function to each channel
-        // for (int c = 0; c < 3; ++c) {
-        //     cv::Mat& channel = channels[c];
-        //     cv::Mat modifiedChannel(channel.size(), channel.type());
-      
-       // .......
-        //     modifiedChannel.copyTo(channel);
-        // }
+		// //second level of optimization
+		// #pragma omp parallel for
+	    // for (int i = 0; i < input_image_.rows; ++i) 
+	    // {
+		//     cv::Vec3b* inputPtr = input_image_.ptr<cv::Vec3b>(i);
+		//     cv::Vec3b* outputPtr = output_image_.ptr<cv::Vec3b>(i);
 
-        // // Merge the modified channels back into the modified image
-        // cv::merge(channels, output_image_);
+		//     for (int j = 0; j < input_image_.cols; ++j) {
+		//         cv::Vec3b pixelValue = inputPtr[j];
+		//         cv::Vec3b modifiedPixelValue = modifyPixelValue(pixelValue);
+		//         outputPtr[j] = modifiedPixelValue;
+		//     }
+		// }
+
+		//third level of optimization
+		const int block_size = 8; // Process 8 pixels at a time (adjust based on your CPU's vector width)
+		#pragma omp parallel for
+
+		for (int i = 0; i < input_image_.rows; i += block_size) {
+		    for (int j = 0; j < input_image_.cols; j += block_size) {
+		        for (int ii = 0; ii < block_size; ++ii) {
+		            cv::Vec3b* inputPtr = input_image_.ptr<cv::Vec3b>(i + ii);
+		            cv::Vec3b* outputPtr = output_image_.ptr<cv::Vec3b>(i + ii);
+
+		            for (int jj = 0; jj < block_size; ++jj) {
+		                cv::Vec3b pixelValue = inputPtr[j + jj];
+		                cv::Vec3b modifiedPixelValue = modifyPixelValue(pixelValue);
+		                outputPtr[j + jj] = modifiedPixelValue;
+		            }
+		        }
+		    }
+		}
+
+
+
+
+	   //   // Apply the function to each pixel value of a color image
+       //  // Split the channels of the color image
+       //  std::vector<cv::Mat> channels(3);
+       //  cv::split(input_image_, channels);
+
+       //  // Apply the function to each channel
+       //  for (int c = 0; c < 3; ++c) {
+       //      cv::Mat& channel = channels[c];
+       //      cv::Mat modifiedChannel(channel.size(), channel.type());
+      // 		cv::Mat lut(1, 256, CV_8UC1);
+	   //      uchar* lutData = lut.ptr<uchar>();
+	   //      for (int i = 0; i < 256; ++i) {
+	   //          lutData[i] = modifyPixelValue(pixelValue);
+	   //      cv::LUT(channel, lut, modifiedChannel);
+       // // .......
+       //      modifiedChannel.copyTo(channel);
+       //  }
+
+       //  // Merge the modified channels back into the modified image
+       //  cv::merge(channels, output_image_);
 	}
 
 
