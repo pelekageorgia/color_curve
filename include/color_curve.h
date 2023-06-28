@@ -3,11 +3,22 @@
 #include <vector>
 #include <iostream>
 #include <chrono>
+#include <fstream>
+#include <sstream>
 
 //Opencv
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc.hpp>
+
+
+struct InputData {
+    std::string inputImagePath;
+    float tValue;
+    float gValue;
+    std::string outputImagePath;
+};
+
 
 class ColorCurve
 {
@@ -24,6 +35,8 @@ class ColorCurve
         void setOutputImage(std::string &output_img_path);
         bool applyColorCurveFunction();
 		void saveOutputImage();
+        std::string getFileNameWithoutExtension(const std::string& filePath);
+
 
     private:
         //////////////////////////////////////////////
