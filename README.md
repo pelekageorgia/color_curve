@@ -24,7 +24,7 @@ make
  ./color_curve <input_image> <t_value> <g_value> <output_image>
 ```
 
-- **Running the program in testing mode**: you can run the program in testing mode using the provide test images and test values or you can run your own tests by adding the in src/testing.txt file. You can run the program in **tsting** mode as follows:
+- **Running the program in testing mode**: you can run the program in testing mode using the provide test images and test values or you can run your own tests by adding the in src/testing.txt file. You can run the program in **testing** mode as follows:
 
 ```
 ./color_curve --testing
