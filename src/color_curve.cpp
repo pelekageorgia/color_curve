@@ -47,7 +47,8 @@ bool ColorCurve::setInputImage(std::string &input_img)
         std::cout << "Unsupported image type. Only 8-bit monochrome and 8-bit RGB images are supported." << std::endl;
         return false;
     }
-	output_image_ = input_image_.clone();
+	output_image_ = cv::Mat::zeros(input_image_.size(), input_image_.type());
+	
     return true;
 }
 //////////////////////////////////////////////
@@ -68,7 +69,7 @@ uchar ColorCurve::modifyPixelValue(uchar &pixelValue)
 
     if (pixelValue < t_value_) 
     {
-        new_pixel_value = static_cast<uchar>(255.0 * pow(pixelValue / 255.0, g_value_) * (pixelValue / static_cast<float>(t_value_)));
+        new_pixel_value = static_cast<uchar>(255.0 * pow(t_value_ / 255.0, g_value_) * (pixelValue / static_cast<float>(t_value_)));
     } 
     else 
     {
@@ -118,7 +119,7 @@ bool ColorCurve::applyColorCurveFunction()
 	    // }
 
 
-		// //first level of optimization
+		// //first level of optimization - avoid calling .at within the second loop several times, cache optimization by acessing data row-wise
 	    // for (int i = 0; i < input_image_.rows; ++i) 
 	    // {
 		//     uchar* inputPtr = input_image_.ptr<uchar>(i);
@@ -131,7 +132,7 @@ bool ColorCurve::applyColorCurveFunction()
 		//     }
 		// }
 
-		//second level of optimization
+		//second level of optimization - parallelization, rows in multiple threads
 		#pragma omp parallel for
 	    for (int i = 0; i < input_image_.rows; ++i) 
 	    {
