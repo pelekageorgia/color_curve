@@ -44,10 +44,11 @@ class ColorCurve
         //////////////////////////////////////////////
 		uchar modifyPixelValue(uchar &pixelValue);
 		cv::Vec3b modifyPixelValue(cv::Vec3b &pixelValue);
+        void createLookupTable(int t_value, double g_value);
 
         float t_value_, g_value_;
-        int input_image_type_;
         std::string output_image_path_;
+        std::vector<uchar> lut_;
 
         //input and output cv imgs
         cv::Mat input_image_, output_image_;

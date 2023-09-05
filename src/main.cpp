@@ -85,6 +85,8 @@ int main(int argc, char* argv[])
             
             cv.saveOutputImage();
         }
+
+        std::cout <<"Finished Testing" << std::endl;
     } 
     else 
     {

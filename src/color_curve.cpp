@@ -41,14 +41,13 @@ bool ColorCurve::setInputImage(std::string &input_img)
     }
 
 	// Check the image type
-    input_image_type_ = input_image_.type();
-    if (input_image_type_ != CV_8UC1 && input_image_type_ != CV_8UC3) 
+    if (input_image_.type() != CV_8UC1 && input_image_.type() != CV_8UC3) 
     {
         std::cout << "Unsupported image type. Only 8-bit monochrome and 8-bit RGB images are supported." << std::endl;
         return false;
     }
 	output_image_ = cv::Mat::zeros(input_image_.size(), input_image_.type());
-	
+
     return true;
 }
 //////////////////////////////////////////////
@@ -58,6 +57,27 @@ bool ColorCurve::setInputImage(std::string &input_img)
 void ColorCurve::setOutputImage(std::string &output_img_path)
 {
 	output_image_path_ = output_img_path;
+}
+//////////////////////////////////////////////
+
+//////////////////////////////////////////////
+//Create LUT for given threshold and gamma values
+void ColorCurve::createLookupTable(int t_value, double g_value)
+{
+	lut_.clear();
+	lut_.resize(256);
+
+    for (int i = 0; i < 256; i++)
+    {
+        if (i < t_value)
+        {
+            lut_[i] = static_cast<uchar>(255.0 * pow(t_value / 255.0, g_value) * (i / static_cast<float>(t_value)));
+        }
+        else
+        {
+            lut_[i] = static_cast<uchar>(255.0 * pow(i / 255.0, g_value));
+        }
+    }
 }
 //////////////////////////////////////////////
 
@@ -106,18 +126,20 @@ cv::Vec3b ColorCurve::modifyPixelValue(cv::Vec3b &pixelValue)
 //A fucntion to apply a color curve to an input image
 bool ColorCurve::applyColorCurveFunction()
 {
+
+	createLookupTable(t_value_, g_value_);
 	//if image is 8UC1
-	if(input_image_type_ == 0)
+	if(input_image_.channels() == 1)
 	{
 		// // Apply the function to each pixel value
 	    // for (int i = 0; i < input_image_.rows; ++i) {
-	    //     for (int j = 0; j < input_image_.cols; ++j) {
+	    //     for (int j = 0; j < input_image_.cols; ++j) 
+		// 	{
 	    //         uchar pixelValue = input_image_.at<uchar>(i, j);
 	    //         uchar modifiedPixelValue = modifyPixelValue(pixelValue);
 	    //         output_image_.at<uchar>(i, j) = modifiedPixelValue;
 	    //     }
 	    // }
-
 
 		// //first level of optimization - avoid calling .at within the second loop several times, cache optimization by acessing data row-wise
 	    // for (int i = 0; i < input_image_.rows; ++i) 
@@ -125,66 +147,104 @@ bool ColorCurve::applyColorCurveFunction()
 		//     uchar* inputPtr = input_image_.ptr<uchar>(i);
 		//     uchar* outputPtr = output_image_.ptr<uchar>(i);
 
-		//     for (int j = 0; j < input_image_.cols; ++j) {
+		//     for (int j = 0; j < input_image_.cols; ++j) 
+		// 	{
 		//         uchar pixelValue = inputPtr[j];
 		//         uchar modifiedPixelValue = modifyPixelValue(pixelValue);
 		//         outputPtr[j] = modifiedPixelValue;
 		//     }
 		// }
 
-		//second level of optimization - parallelization, rows in multiple threads
+		// //second level of optimization -  avoid calling .at within the second loop several times, cache optimization, parallelization, rows in multiple threads
+		// #pragma omp parallel for
+	    // for (int i = 0; i < input_image_.rows; ++i) 
+	    // {
+		//     uchar* inputPtr = input_image_.ptr<uchar>(i);
+		//     uchar* outputPtr = output_image_.ptr<uchar>(i);
+
+		//     for (int j = 0; j < input_image_.cols; ++j) 
+		// 	{
+		//         uchar pixelValue = inputPtr[j];
+		//         uchar modifiedPixelValue = modifyPixelValue(pixelValue);
+		//         outputPtr[j] = modifiedPixelValue;
+		//     }
+		// }
+
+		//third level of optimization -  avoid calling .at within the second loop several times, cache optimization, parallelization, rows in multiple threads, and using LUTs
 		#pragma omp parallel for
 	    for (int i = 0; i < input_image_.rows; ++i) 
 	    {
 		    uchar* inputPtr = input_image_.ptr<uchar>(i);
 		    uchar* outputPtr = output_image_.ptr<uchar>(i);
 
-		    for (int j = 0; j < input_image_.cols; ++j) {
+		    for (int j = 0; j < input_image_.cols; ++j) 
+			{
 		        uchar pixelValue = inputPtr[j];
-		        uchar modifiedPixelValue = modifyPixelValue(pixelValue);
-		        outputPtr[j] = modifiedPixelValue;
+		        outputPtr[j] = lut_[pixelValue];;
 		    }
 		}
 
 	}
-	else if (input_image_type_ == 16)
+	else if (input_image_.channels() == 3)
 	{
-		// // // Apply the function to each pixel value
-	    // // for (int i = 0; i < input_image_.rows; ++i) {
-	    // //     for (int j = 0; j < input_image_.cols; ++j) {
-	    // //         cv::Vec3b pixelValue = input_image_.at<cv::Vec3b>(i, j);
+		// // Apply the function to each pixel value
+	    // for (int i = 0; i < input_image_.rows; ++i) 
+		// {
+	    //     for (int j = 0; j < input_image_.cols; ++j) 
+		// 	{
+	    //         cv::Vec3b pixelValue = input_image_.at<cv::Vec3b>(i, j);
 
-	    // //         cv::Vec3b modifiedPixelValue = modifyPixelValue(pixelValue);
+	    //         cv::Vec3b modifiedPixelValue = modifyPixelValue(pixelValue);
 
-	    // //         output_image_.at<cv::Vec3b>(i, j) = modifiedPixelValue;
+	    //         output_image_.at<cv::Vec3b>(i, j) = modifiedPixelValue;
 
-	    // //     }
-	    // // }
+	    //     }
+	    // }
 
-		//first level of optimization
+		// //first level of optimization - avoid calling .at within the second loop several times, cache optimization by acessing data row-wise
 	    // for (int i = 0; i < input_image_.rows; ++i) 
 	    // {
 		//     cv::Vec3b* inputPtr = input_image_.ptr<cv::Vec3b>(i);
 		//     cv::Vec3b* outputPtr = output_image_.ptr<cv::Vec3b>(i);
 
-		//     for (int j = 0; j < input_image_.cols; ++j) {
+		//     for (int j = 0; j < input_image_.cols; ++j) 
+		// 	{
 		//         cv::Vec3b pixelValue = inputPtr[j];
 		//         cv::Vec3b modifiedPixelValue = modifyPixelValue(pixelValue);
 		//         outputPtr[j] = modifiedPixelValue;
 		//     }
 		// }
 
-		//second level of optimization
+		// //second level of optimization -  avoid calling .at within the second loop several times, cache optimization, parallelization, rows in multiple threads
+		// #pragma omp parallel for
+	    // for (int i = 0; i < input_image_.rows; ++i) 
+	    // {
+		//     cv::Vec3b* inputPtr = input_image_.ptr<cv::Vec3b>(i);
+		//     cv::Vec3b* outputPtr = output_image_.ptr<cv::Vec3b>(i);
+
+		//     for (int j = 0; j < input_image_.cols; ++j) 
+		// 	{
+		//         cv::Vec3b pixelValue = inputPtr[j];
+		//         cv::Vec3b modifiedPixelValue = modifyPixelValue(pixelValue);
+		//         outputPtr[j] = modifiedPixelValue;
+		//     }
+		// }
+
+		//third level of optimization -  avoid calling .at within the second loop several times, cache optimization, parallelization, rows in multiple threads, and using LUTs
 		#pragma omp parallel for
 	    for (int i = 0; i < input_image_.rows; ++i) 
 	    {
 		    cv::Vec3b* inputPtr = input_image_.ptr<cv::Vec3b>(i);
 		    cv::Vec3b* outputPtr = output_image_.ptr<cv::Vec3b>(i);
 
-		    for (int j = 0; j < input_image_.cols; ++j) {
+		    for (int j = 0; j < input_image_.cols; ++j) 
+			{
 		        cv::Vec3b pixelValue = inputPtr[j];
-		        cv::Vec3b modifiedPixelValue = modifyPixelValue(pixelValue);
-		        outputPtr[j] = modifiedPixelValue;
+				for (int ch = 0; ch < 3; ch++)
+                {
+                    pixelValue[ch] = lut_[pixelValue[ch]];
+                }
+				outputPtr[j] = pixelValue;
 		    }
 		}
 	}
